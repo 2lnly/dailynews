@@ -3,8 +3,11 @@ from __future__ import annotations
 
 import gzip
 import html
+import json
 import re
+import threading
 import time
+import urllib.parse
 import urllib.error
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -17,6 +20,7 @@ USER_AGENT = "Mozilla/5.0 (compatible; dailynews-scraper/1.0)"
 MAX_BYTES = 12 * 1024 * 1024
 TAG_RE = re.compile(r"<[^>]*>")
 WS_RE = re.compile(r"\s+")
+ZERO_WIDTH_RE = re.compile("[\u200b-\u200d\u2060\ufeff]")
 # Characters that are illegal in XML 1.0 but turn up in real feeds.
 BAD_XML_RE = re.compile(rb"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 
@@ -31,6 +35,7 @@ def clean_text(value: str | None, limit: int = 0) -> str:
     if not value:
         return ""
     text = html.unescape(TAG_RE.sub(" ", html.unescape(value)))
+    text = ZERO_WIDTH_RE.sub("", text)
     text = WS_RE.sub(" ", text).strip()
     if limit and len(text) > limit:
         text = text[:limit].rsplit(" ", 1)[0].rstrip(" ,;:-") + "…"
@@ -70,7 +75,7 @@ def parse_feed(data: bytes) -> list[dict]:
     for node in root.iter():
         if _local(node.tag) not in ("item", "entry"):
             continue
-        title = url = summary = ""
+        title = url = summary = origin = ""
         published = None
         for child in node:
             name = _local(child.tag)
@@ -86,19 +91,47 @@ def parse_feed(data: bytes) -> list[dict]:
                     url = safe_url(text)
             elif name in ("description", "summary") and not summary:
                 summary = clean_text(text, 300)
+            elif name == "source":
+                origin = clean_text(text)
             elif name in ("pubdate", "published", "date") or (name == "updated" and published is None):
                 published = parse_date(text) or published
+        if "//news.google.com/" in url:
+            # Google News appends " - Publisher" to headlines and has no real summary.
+            if origin and title.endswith(" - " + origin):
+                title = title[: -len(origin) - 3].rstrip()
+            summary = ""
         if title and url:
             items.append({"title": title, "url": url, "summary": summary, "published": published})
     return items
 
 
-def _download(url: str, timeout: float) -> bytes:
+_host_locks: dict[str, threading.Semaphore] = {}
+_host_locks_guard = threading.Lock()
+
+
+def _host_slot(url: str) -> threading.Semaphore:
+    """At most 6 simultaneous requests per host, so no single site is hammered."""
+    host = urllib.parse.urlsplit(url).netloc.lower()
+    with _host_locks_guard:
+        return _host_locks.setdefault(host, threading.Semaphore(6))
+
+
+def _download(url: str, timeout: float, accept: str = "") -> bytes:
+    with _host_slot(url):
+        return _download_now(url, timeout, accept)
+
+
+def fetch_json(url: str, timeout: float = 8.0):
+    """GET a JSON API. Raises on any failure; callers decide how to degrade."""
+    return json.loads(_download(url, timeout, "application/json").decode("utf-8", "replace"))
+
+
+def _download_now(url: str, timeout: float, accept: str = "") -> bytes:
     request = urllib.request.Request(
         url,
         headers={
             "User-Agent": USER_AGENT,
-            "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
+            "Accept": accept or "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
             "Accept-Encoding": "gzip, deflate",
         },
     )
@@ -139,7 +172,7 @@ def fetch_source(source: dict, timeout: float = 8.0, retries: int = 1) -> dict:
     return result
 
 
-def fetch_all(sources: list[dict], workers: int = 32, timeout: float = 8.0) -> list[dict]:
+def fetch_all(sources: list[dict], workers: int = 48, timeout: float = 8.0) -> list[dict]:
     """Fetch every source in parallel, preserving input order."""
     if not sources:
         return []

@@ -101,6 +101,17 @@ body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-a
 .story h3 a { text-decoration: none; }
 .story h3 a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .summary { margin: 0; color: var(--muted); max-width: 68ch; overflow-wrap: anywhere; }
+.account { margin: 0; max-width: 70ch; overflow-wrap: anywhere; }
+.account .tag, .names .tag, .buzz .tag {
+  font: 600 11px/1.6 var(--font-data); text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted);
+  margin-right: 6px;
+}
+.account a.src { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.names { margin: 0; font-size: 13px; color: var(--muted); max-width: 70ch; }
+.names b { font-weight: 500; color: var(--ink); }
+.buzz { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.buzz .chip { border-style: dashed; }
+.buzz .chip::before { border-radius: 0; transform: rotate(45deg); background: var(--trend); }
 .meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: var(--muted); align-items: center; }
 .meta .topic { text-transform: uppercase; letter-spacing: 0.07em; font: 600 11px/1.6 var(--font-data); color: var(--ink); }
 .flag { font: 600 11px/1 var(--font-body); padding: 4px 7px; border-radius: 3px; border: 1px solid var(--mixed); color: var(--mixed); }
@@ -126,6 +137,19 @@ a.chip:hover { border-color: var(--ink); }
 .detail li .r { font: 600 12px/1.7 var(--font-data); color: var(--c); }
 .detail li a { overflow-wrap: anywhere; }
 .detail li small { display: block; color: var(--muted); font-size: 12px; }
+.detail h4 { margin: 4px 0 0; font: 700 13px/1.3 var(--font-display); }
+.detail li .side { font: 600 11px/1.9 var(--font-data); text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.detail ul.frames li { grid-template-columns: 64px minmax(0, 1fr); }
+
+/* Attention without coverage */
+.attention h2, .ledger h2 { margin: 0 0 4px; font: 800 24px/1.2 var(--font-display); }
+.attention > p, .ledger > p { margin: 0 0 12px; color: var(--muted); max-width: 72ch; }
+.attgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px 28px; }
+.attgrid h3 { margin: 0 0 6px; font: 600 11px/1.4 var(--font-data); text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); border-bottom: 1px solid var(--line); padding-bottom: 5px; }
+.attgrid ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.attgrid li { font-size: 14px; min-width: 0; overflow-wrap: anywhere; }
+.attgrid small { display: block; color: var(--muted); font-size: 12px; }
+.ledger h3 { margin: 22px 0 8px; font: 700 16px/1.3 var(--font-display); }
 
 /* Gauges */
 .gauges { display: flex; flex-direction: column; gap: 10px; }
@@ -140,8 +164,6 @@ a.chip:hover { border-color: var(--ink); }
 .empty { padding: 28px 0; color: var(--muted); }
 
 /* Source ledger */
-.ledger h2 { margin: 0 0 4px; font: 800 24px/1.2 var(--font-display); }
-.ledger > p { margin: 0 0 12px; color: var(--muted); max-width: 72ch; }
 .tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
 table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; }
 th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
@@ -175,11 +197,11 @@ td.fail { color: var(--low); }
     <div class="cols">
       <div>
         <h2>Trend, 0 to 100</h2>
-        <p>How big the story is right now. 60% is how many different outlets carry it, 15% how recent the newest article is, 15% how many articles appeared in the last 6 hours, and 10% how high it sits in each outlet's feed. A story only one outlet carries cannot score above 28.</p>
+        <p>How big the story is right now. 50% is how many different outlets carry it, 18% is attention on social and search platforms (Reddit, Hacker News, Bluesky, Mastodon, Lemmy, Google Trends, Wikipedia page views), 12% how recent the newest article is, 12% how many articles appeared in the last 6 hours, and 8% how high it sits in each outlet's feed.</p>
       </div>
       <div>
         <h2>Reliability, 0 to 100</h2>
-        <p>How far you can trust that the story is accurate. It is the average rating of the three best outlets reporting it, plus 3 points for each further outlet rated 70 or more that also reports it (up to 9). Weak outlets repeating a story do not lower it.</p>
+        <p>How far you can trust that the story is accurate. It is the average rating of the three best outlets reporting it, plus 3 points for each further outlet rated 70 or more that reports it under its own headline (up to 9). Outlets that only rerun another outlet's headline, such as wire copy, are not counted as extra confirmation. Weak outlets repeating a story do not lower it, and social media attention never raises it.</p>
         <div class="scale">
           <span style="--c:var(--high)">High, 80+</span>
           <span style="--c:var(--good)">Good, 65 to 79</span>
@@ -188,8 +210,12 @@ td.fail { color: var(--low); }
         </div>
       </div>
       <div>
+        <h2>Typical account</h2>
+        <p>The sentences under each headline are quoted from the outlets' own summaries. They are the ones that share the most with what every other outlet covering the story wrote, so they show the common version of events. Nothing is machine-written. Open a story to see how left-leaning, center, right-leaning and state-controlled outlets each headline it.</p>
+      </div>
+      <div>
         <h2>Limits</h2>
-        <p>Outlet ratings are editorial estimates of each outlet's track record, kept in <code>sources.json</code>. They rate the outlet, not the individual article, and a high score is not proof. Stories are grouped automatically by headline wording, so a group can occasionally mix two related events.</p>
+        <p>Outlet ratings are editorial estimates of each outlet's track record, kept in <code>sources.json</code>. They rate the outlet, not the individual article, and a high score is not proof. Stories are grouped automatically by headline wording, so a group can occasionally mix two related events, and a social post can occasionally be attached to the wrong story. X (Twitter) is not included because it offers no free access to read posts.</p>
       </div>
     </div>
   </details>
@@ -227,9 +253,23 @@ td.fail { color: var(--low); }
   <ol class="stories" id="stories"></ol>
   <button type="button" class="pager" id="pager" hidden>Show more stories</button>
 
+  <section class="attention" id="attention-section" aria-labelledby="attention-title" hidden>
+    <h2 id="attention-title">Popular elsewhere, no matching story found</h2>
+    <p>The biggest items on each platform that could not be matched to a story from a rated outlet. Most are discussion, opinion or niche links rather than news, and a few may be about a story above in different words. Treat any factual claim here as unverified.</p>
+    <div class="attgrid" id="attention"></div>
+  </section>
+
   <section class="ledger" aria-labelledby="ledger-title">
-    <h2 id="ledger-title">Outlet ratings</h2>
-    <p>Every outlet scraped for this edition, with the rating used in the reliability score, its political lean, and how many of its articles fell inside the time window.</p>
+    <h2 id="ledger-title">Where this comes from</h2>
+    <p>Platforms are used only to measure attention. Outlets are what the reliability score is built on: each has a rating, a political lean, and a count of its articles inside the time window.</p>
+    <h3>Social and search platforms</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Platform</th><th class="n">Items read</th><th class="n">Stories matched</th><th>Status</th></tr></thead>
+        <tbody id="platforms"></tbody>
+      </table>
+    </div>
+    <h3>News outlets</h3>
     <div class="tablewrap">
       <table>
         <thead><tr><th>Outlet</th><th>Rating</th><th>Lean</th><th class="n">Articles</th><th>Why this rating</th></tr></thead>
@@ -299,13 +339,15 @@ td.fail { color: var(--low); }
   }
 
   function trendNote(s) {
-    if (s.outlets === 1) return "1 outlet";
-    return plural(s.outlets, "outlet") + ", " + plural(s.articles.length, "article");
+    var note = plural(s.outlets, "outlet");
+    if (s.social.length) note += ", " + plural(s.social.length, "platform");
+    return note;
   }
   function relNote(s) {
     if (s.outlets === 1) return s.reliabilityLabel + ", uncorroborated";
     return s.reliabilityLabel + ", " + s.strongOutlets + " of " + s.outlets + " rated 70+";
   }
+  var SIDE = { left: "Left", center: "Center", right: "Right", state: "State" };
 
   function detail(story) {
     var box = el("div", "detail");
@@ -318,9 +360,27 @@ td.fail { color: var(--low); }
       "Reliability " + story.reliability + " = " + p.base + " (average of the best " +
       Math.min(3, story.outlets) + ") + " + p.bonus + " for corroboration" +
       (p.base + p.bonus > 99 ? ", capped at 99" : "") + ". " +
-      "Trend " + story.trend + " from coverage " + Math.round(p.coverage * 100) + "%, recency " +
+      (story.copies ? plural(story.copies, "outlet") + " only reran another outlet's headline and " +
+        (story.copies === 1 ? "is" : "are") + " not counted as confirmation. " : "") +
+      "Trend " + story.trend + " from coverage " + Math.round(p.coverage * 100) + "%, social and search attention " +
+      Math.round(p.buzz * 100) + "%, recency " +
       Math.round(p.recency * 100) + "%, last-6-hours activity " + Math.round(p.velocity * 100) +
       "%, feed position " + Math.round(p.prominence * 100) + "%. Outlets by lean: " + lean.join(", ") + "."));
+    if (story.framing.length) {
+      box.appendChild(el("h4", null, "How each side headlines it"));
+      var frames = el("ul", "frames");
+      story.framing.forEach(function (f) {
+        var li = el("li");
+        li.appendChild(el("span", "side", SIDE[f.side]));
+        var body = el("div");
+        body.appendChild(link(f.url, f.title));
+        body.appendChild(el("small", null, f.outlet + " · most typical headline of " + plural(f.outlets, "outlet") + " on this side"));
+        li.appendChild(body);
+        frames.appendChild(li);
+      });
+      box.appendChild(frames);
+    }
+    box.appendChild(el("h4", null, "All " + plural(story.articles.length, "article")));
     var ul = el("ul");
     story.articles.forEach(function (a) {
       var li = el("li");
@@ -346,7 +406,27 @@ td.fail { color: var(--low); }
     var h = el("h3");
     h.appendChild(link(story.url, story.title));
     main.appendChild(h);
-    if (story.summary) main.appendChild(el("p", "summary", story.summary));
+    if (story.account.length) {
+      var acc = el("p", "account");
+      acc.appendChild(el("span", "tag", story.account[0].headline ? "Typical headline" : "Typical account"));
+      story.account.forEach(function (a) {
+        acc.appendChild(document.createTextNode(a.text + " — "));
+        acc.appendChild(link(a.url, a.outlet, "src"));
+        acc.appendChild(document.createTextNode(". "));
+      });
+      main.appendChild(acc);
+    } else if (story.summary) {
+      main.appendChild(el("p", "summary", story.summary));
+    }
+    if (story.entities.length) {
+      var names = el("p", "names");
+      names.appendChild(el("span", "tag", "Named in coverage"));
+      story.entities.forEach(function (e, i) {
+        names.appendChild(el("b", null, e.name));
+        names.appendChild(document.createTextNode(" " + e.outlets + " of " + story.outlets + (i < story.entities.length - 1 ? ", " : "")));
+      });
+      main.appendChild(names);
+    }
 
     var meta = el("div", "meta");
     meta.appendChild(el("span", "topic", story.topic));
@@ -368,6 +448,19 @@ td.fail { color: var(--low); }
     });
     if (outlets.length > 8) chips.appendChild(el("span", "chip plain", "+" + (outlets.length - 8) + " more"));
     main.appendChild(chips);
+
+    if (story.social.length) {
+      var buzz = el("div", "buzz");
+      buzz.appendChild(el("span", "tag", "Attention"));
+      story.social.forEach(function (g) {
+        var c = link(g.url, null, "chip");
+        c.appendChild(document.createTextNode(g.platform));
+        c.appendChild(el("b", null, g.metric));
+        c.title = g.text;
+        buzz.appendChild(c);
+      });
+      main.appendChild(buzz);
+    }
 
     var btn = el("button", "more", "Show score breakdown and " + plural(story.articles.length, "article"));
     btn.type = "button";
@@ -450,20 +543,65 @@ td.fail { color: var(--low); }
     });
   }
 
+  function renderAttention() {
+    if (!DATA.attention.length) return;
+    var grid = document.getElementById("attention"), groups = {}, order = [];
+    DATA.attention.forEach(function (a) {
+      if (!groups[a.platform]) { groups[a.platform] = []; order.push(a.platform); }
+      groups[a.platform].push(a);
+    });
+    order.forEach(function (name) {
+      var box = el("div");
+      box.appendChild(el("h3", null, name));
+      var ul = el("ul");
+      groups[name].forEach(function (a) {
+        var li = el("li");
+        li.appendChild(link(a.url, a.text));
+        li.appendChild(el("small", null, a.metric));
+        ul.appendChild(li);
+      });
+      box.appendChild(ul);
+      grid.appendChild(box);
+    });
+    document.getElementById("attention-section").hidden = false;
+  }
+
+  function renderPlatforms() {
+    var body = document.getElementById("platforms");
+    DATA.platforms.forEach(function (p) {
+      var tr = el("tr");
+      tr.appendChild(el("td", null, p.platform));
+      tr.appendChild(el("td", "n", String(p.items)));
+      tr.appendChild(el("td", "n", String(p.stories)));
+      tr.appendChild(el("td", p.ok ? null : "fail", p.ok ? "Read" : "Failed this run: " + p.error));
+      body.appendChild(tr);
+    });
+    var x = el("tr");
+    x.appendChild(el("td", null, "X (Twitter)"));
+    x.appendChild(el("td", "n", "0"));
+    x.appendChild(el("td", "n", "0"));
+    x.appendChild(el("td", null, "Not included: no free access to read posts"));
+    body.appendChild(x);
+  }
+
   function renderHeader() {
     var st = DATA.stats;
     var date = GENERATED.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
     var time = GENERATED.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", timeZoneName: "short" });
     document.getElementById("edition").textContent = "Edition of " + date + ", " + time;
     document.getElementById("run").textContent =
-      st.articles + " articles from " + st.outlets + " outlets over the last " + DATA.windowHours +
-      " hours, grouped into " + st.stories + " stories. " + st.multiSource +
-      " of them are carried by more than one outlet. Scraped and scored in " + st.totalSeconds + " seconds.";
+      st.articles.toLocaleString() + " articles from " + st.outlets + " outlets over the last " + DATA.windowHours +
+      " hours, grouped into " + st.stories.toLocaleString() + " stories, " + st.multiSource +
+      " of them carried by more than one outlet. Attention measured from " + st.signals + " items on " +
+      st.platformsOk + " social and search platforms. Scraped and scored in " + st.totalSeconds + " seconds.";
     var failed = st.feeds - st.feedsOk;
+    var singlesShown = DATA.stories.filter(function (s) { return s.outlets === 1; }).length;
     document.getElementById("foot").textContent =
       st.feedsOk + " of " + st.feeds + " feeds were read successfully" +
       (failed ? "; " + failed + " failed and are marked in the table above." : ".") +
-      " Headlines and summaries belong to their publishers and link to the original articles.";
+      (st.singleSource > singlesShown ? " This page lists every multi-outlet story and the " + singlesShown +
+        " highest-trending of " + st.singleSource.toLocaleString() + " single-outlet stories." : "") +
+      " Headlines and quoted sentences belong to their publishers and link to the original articles.";
   }
 
   document.getElementById("sort").addEventListener("click", function (e) {
@@ -487,6 +625,8 @@ td.fail { color: var(--low); }
   state.query = document.getElementById("search").value.trim().toLowerCase();
 
   renderHeader();
+  renderAttention();
+  renderPlatforms();
   renderLedger();
   render();
 })();
