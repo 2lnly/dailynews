@@ -1,0 +1,493 @@
+<title>Daily News Gauge</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,500..800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a desk ledger. One ranked column of stories; every row carries the same two gauges on
+   the right (Trend, Reliability) so the eye can run down them like columns of a table. */
+:root {
+  --bg: #f1f4f6;
+  --surface: #ffffff;
+  --ink: #13202b;
+  --muted: #55636f;
+  --line: #d3dae0;
+  --track: #e3e8ec;
+  --trend: #2c47c9;
+  --high: #0b7a5c;
+  --good: #4b7d14;
+  --mixed: #a35f00;
+  --low: #bf3327;
+  --font-display: "Archivo", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e141a; --surface: #161f28; --ink: #e7edf2; --muted: #98a6b3; --line: #2b3742;
+    --track: #25303a; --trend: #8ea2ff; --high: #45c9a0; --good: #9ccb5e; --mixed: #eeab45;
+    --low: #ff8377; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e141a; --surface: #161f28; --ink: #e7edf2; --muted: #98a6b3; --line: #2b3742;
+  --track: #25303a; --trend: #8ea2ff; --high: #45c9a0; --good: #9ccb5e; --mixed: #eeab45;
+  --low: #ff8377; color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 400 15px/1.5 var(--font-body);
+}
+.wrap {
+  max-width: 1040px; margin: 0 auto; padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 22px;
+}
+a { color: inherit; }
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible {
+  outline: 2px solid var(--trend); outline-offset: 2px;
+}
+.num { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+
+/* Masthead */
+.mast { display: flex; flex-direction: column; gap: 8px; border-bottom: 3px solid var(--ink); padding-bottom: 14px; }
+.mast h1 {
+  margin: 0; font: 800 clamp(30px, 6vw, 46px)/1 var(--font-display);
+  font-stretch: 112%; letter-spacing: -0.02em; text-wrap: balance;
+}
+.mast .edition { font: 500 13px/1.4 var(--font-data); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.mast .run { color: var(--muted); max-width: 70ch; }
+
+/* How to read */
+.howto { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; }
+.howto summary { cursor: pointer; padding: 10px 14px; font-weight: 600; }
+.howto .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; padding: 4px 14px 14px; }
+.howto h2 { margin: 0 0 4px; font: 700 15px/1.3 var(--font-display); }
+.howto p { margin: 0 0 6px; color: var(--muted); font-size: 14px; }
+.scale { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; }
+.scale span::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; background: var(--c); }
+
+/* Controls */
+.controls {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--bg); padding-block: 10px; border-bottom: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; background: var(--surface); }
+.seg button {
+  font: 500 13px/1 var(--font-body); color: var(--muted); background: none; border: 0;
+  padding: 8px 11px; cursor: pointer; border-right: 1px solid var(--line);
+}
+.seg button:last-child { border-right: 0; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.controls label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.controls select, .controls input[type="search"] {
+  font: 400 13px/1.2 var(--font-body); color: var(--ink); background: var(--surface);
+  border: 1px solid var(--line); border-radius: 4px; padding: 7px 8px; max-width: 100%;
+}
+.controls input[type="search"] { width: 170px; }
+.count { margin-left: auto; font-size: 13px; color: var(--muted); }
+
+/* Story rows */
+.stories { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.story {
+  display: grid; grid-template-columns: 38px minmax(0, 1fr) 210px; gap: 6px 16px;
+  padding: 16px 0; border-bottom: 1px solid var(--line);
+}
+.rank { font: 600 15px/1.5 var(--font-data); color: var(--muted); font-variant-numeric: tabular-nums; }
+.main { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.story h3 { margin: 0; font: 700 19px/1.25 var(--font-display); text-wrap: balance; overflow-wrap: anywhere; }
+.story h3 a { text-decoration: none; }
+.story h3 a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.summary { margin: 0; color: var(--muted); max-width: 68ch; overflow-wrap: anywhere; }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: var(--muted); align-items: center; }
+.meta .topic { text-transform: uppercase; letter-spacing: 0.07em; font: 600 11px/1.6 var(--font-data); color: var(--ink); }
+.flag { font: 600 11px/1 var(--font-body); padding: 4px 7px; border-radius: 3px; border: 1px solid var(--mixed); color: var(--mixed); }
+.flag.bad { border-color: var(--low); color: var(--low); }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 12px; line-height: 1;
+  padding: 4px 7px; border: 1px solid var(--line); border-radius: 3px; background: var(--surface);
+  text-decoration: none; max-width: 100%;
+}
+.chip::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+.chip b { font: 500 11px/1 var(--font-data); color: var(--muted); }
+.chip.plain::before { display: none; }
+a.chip:hover { border-color: var(--ink); }
+.more {
+  align-self: flex-start; font: 500 13px/1 var(--font-body); color: var(--trend); background: none;
+  border: 0; padding: 4px 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+}
+.detail { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
+.detail .why { margin: 0; font-size: 13px; color: var(--muted); max-width: 70ch; }
+.detail ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.detail li { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 8px; font-size: 14px; }
+.detail li .r { font: 600 12px/1.7 var(--font-data); color: var(--c); }
+.detail li a { overflow-wrap: anywhere; }
+.detail li small { display: block; color: var(--muted); font-size: 12px; }
+
+/* Gauges */
+.gauges { display: flex; flex-direction: column; gap: 10px; }
+.gauge { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 8px; align-items: baseline; }
+.gauge .label { font: 600 11px/1.2 var(--font-data); text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+.gauge .value { font: 600 17px/1 var(--font-data); font-variant-numeric: tabular-nums; color: var(--c); }
+.gauge .bar { grid-column: 1 / -1; height: 6px; background: var(--track); border-radius: 1px; overflow: hidden; }
+.gauge .bar i { display: block; height: 100%; background: var(--c); }
+.gauge .note { grid-column: 1 / -1; font-size: 12px; color: var(--muted); }
+
+.pager { align-self: center; font: 600 14px/1 var(--font-body); color: var(--ink); background: var(--surface); border: 1px solid var(--ink); border-radius: 4px; padding: 10px 16px; cursor: pointer; }
+.empty { padding: 28px 0; color: var(--muted); }
+
+/* Source ledger */
+.ledger h2 { margin: 0 0 4px; font: 800 24px/1.2 var(--font-display); }
+.ledger > p { margin: 0 0 12px; color: var(--muted); max-width: 72ch; }
+.tablewrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 14px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 11px/1.4 var(--font-data); text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+td.score { font: 600 14px/1.5 var(--font-data); color: var(--c); white-space: nowrap; }
+td.n { font-family: var(--font-data); font-variant-numeric: tabular-nums; text-align: right; }
+th.n { text-align: right; }
+td.fail { color: var(--low); }
+.foot { color: var(--muted); font-size: 13px; max-width: 72ch; }
+
+@media (max-width: 720px) {
+  .story { grid-template-columns: 30px minmax(0, 1fr); }
+  .gauges { grid-column: 2; flex-direction: row; gap: 16px; }
+  .gauge { flex: 1; min-width: 0; }
+  .count { margin-left: 0; width: 100%; }
+  .controls input[type="search"] { width: 140px; }
+}
+@media (prefers-reduced-motion: no-preference) { .gauge .bar i { transition: width 0.3s ease; } }
+</style>
+<!--BODY-->
+<div class="wrap">
+  <header class="mast">
+    <div class="edition" id="edition">Daily edition</div>
+    <h1>Daily News Gauge</h1>
+    <div class="run" id="run"></div>
+  </header>
+
+  <details class="howto" id="howto">
+    <summary>How the two scores work</summary>
+    <div class="cols">
+      <div>
+        <h2>Trend, 0 to 100</h2>
+        <p>How big the story is right now. 60% is how many different outlets carry it, 15% how recent the newest article is, 15% how many articles appeared in the last 6 hours, and 10% how high it sits in each outlet's feed. A story only one outlet carries cannot score above 28.</p>
+      </div>
+      <div>
+        <h2>Reliability, 0 to 100</h2>
+        <p>How far you can trust that the story is accurate. It is the average rating of the three best outlets reporting it, plus 3 points for each further outlet rated 70 or more that also reports it (up to 9). Weak outlets repeating a story do not lower it.</p>
+        <div class="scale">
+          <span style="--c:var(--high)">High, 80+</span>
+          <span style="--c:var(--good)">Good, 65 to 79</span>
+          <span style="--c:var(--mixed)">Mixed, 45 to 64</span>
+          <span style="--c:var(--low)">Low, under 45</span>
+        </div>
+      </div>
+      <div>
+        <h2>Limits</h2>
+        <p>Outlet ratings are editorial estimates of each outlet's track record, kept in <code>sources.json</code>. They rate the outlet, not the individual article, and a high score is not proof. Stories are grouped automatically by headline wording, so a group can occasionally mix two related events.</p>
+      </div>
+    </div>
+  </details>
+
+  <div class="controls" role="group" aria-label="Filter and sort stories">
+    <div class="seg" id="sort" role="group" aria-label="Sort by">
+      <button type="button" id="sort-trend" data-sort="trend" aria-pressed="true">Trending</button>
+      <button type="button" id="sort-reliability" data-sort="reliability" aria-pressed="false">Most reliable</button>
+      <button type="button" id="sort-doubt" data-sort="doubt" aria-pressed="false">Least reliable</button>
+      <button type="button" id="sort-new" data-sort="new" aria-pressed="false">Newest</button>
+    </div>
+    <label for="topic">Topic
+      <select id="topic">
+        <option value="">All</option>
+        <option value="world">World</option>
+        <option value="politics">Politics</option>
+        <option value="business">Business</option>
+        <option value="tech">Tech</option>
+        <option value="science">Science</option>
+        <option value="sport">Sport</option>
+      </select>
+    </label>
+    <label for="coverage">Coverage
+      <select id="coverage">
+        <option value="2">2+ outlets</option>
+        <option value="1">Any</option>
+        <option value="3">3+ outlets</option>
+        <option value="5">5+ outlets</option>
+      </select>
+    </label>
+    <label for="search">Search <input type="search" id="search" placeholder="Word or outlet" autocomplete="off"></label>
+    <div class="count" id="count" aria-live="polite"></div>
+  </div>
+
+  <ol class="stories" id="stories"></ol>
+  <button type="button" class="pager" id="pager" hidden>Show more stories</button>
+
+  <section class="ledger" aria-labelledby="ledger-title">
+    <h2 id="ledger-title">Outlet ratings</h2>
+    <p>Every outlet scraped for this edition, with the rating used in the reliability score, its political lean, and how many of its articles fell inside the time window.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Outlet</th><th>Rating</th><th>Lean</th><th class="n">Articles</th><th>Why this rating</th></tr></thead>
+        <tbody id="ledger"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="foot" id="foot"></p>
+</div>
+
+<script type="application/json" id="data">/*__DATA__*/</script>
+<script>
+(function () {
+  "use strict";
+  var DATA = JSON.parse(document.getElementById("data").textContent);
+  var GENERATED = new Date(DATA.generated);
+  var PAGE = 60;
+  var state = { sort: "trend", topic: "", coverage: 2, query: "", shown: PAGE };
+  var LEAN = { "left": "Left", "lean-left": "Leans left", "center": "Center", "lean-right": "Leans right", "right": "Right", "state": "State-controlled" };
+
+  function el(tag, cls, text) {
+    var node = document.createElement(tag);
+    if (cls) node.className = cls;
+    if (text !== undefined && text !== null) node.textContent = text;
+    return node;
+  }
+  function link(url, text, cls) {
+    var a = el("a", cls, text);
+    if (/^https?:\/\//i.test(url)) { a.href = url; a.target = "_blank"; a.rel = "noopener noreferrer"; }
+    return a;
+  }
+  function tier(score) { return score >= 80 ? "high" : score >= 65 ? "good" : score >= 45 ? "mixed" : "low"; }
+  function tierVar(score) { return "var(--" + tier(score) + ")"; }
+  function ago(iso) {
+    var mins = Math.max(0, Math.round((GENERATED - new Date(iso)) / 60000));
+    if (mins < 60) return mins + " min before this edition";
+    var hours = Math.round(mins / 60);
+    return hours + (hours === 1 ? " hour" : " hours") + " before this edition";
+  }
+  function agoShort(iso) {
+    var mins = Math.max(0, Math.round((GENERATED - new Date(iso)) / 60000));
+    return mins < 60 ? mins + "m" : Math.round(mins / 60) + "h";
+  }
+  function plural(n, word) { return n + " " + word + (n === 1 ? "" : "s"); }
+
+  function gauge(label, value, color, note) {
+    var g = el("div", "gauge");
+    g.style.setProperty("--c", color);
+    g.appendChild(el("span", "label", label));
+    g.appendChild(el("span", "value", String(value)));
+    var bar = el("div", "bar");
+    var fill = el("i");
+    fill.style.width = Math.max(0, Math.min(100, value)) + "%";
+    bar.appendChild(fill);
+    g.appendChild(bar);
+    g.appendChild(el("span", "note", note));
+    return g;
+  }
+
+  function outletsOf(story) {
+    var seen = {}, list = [];
+    story.articles.forEach(function (a) {
+      if (!seen[a.outlet]) { seen[a.outlet] = true; list.push(a); }
+    });
+    return list;
+  }
+
+  function trendNote(s) {
+    if (s.outlets === 1) return "1 outlet";
+    return plural(s.outlets, "outlet") + ", " + plural(s.articles.length, "article");
+  }
+  function relNote(s) {
+    if (s.outlets === 1) return s.reliabilityLabel + ", uncorroborated";
+    return s.reliabilityLabel + ", " + s.strongOutlets + " of " + s.outlets + " rated 70+";
+  }
+
+  function detail(story) {
+    var box = el("div", "detail");
+    var p = story.parts, sides = story.sides, lean = [];
+    if (sides.left) lean.push(sides.left + " left or left-leaning");
+    if (sides.center) lean.push(sides.center + " center");
+    if (sides.right) lean.push(sides.right + " right or right-leaning");
+    if (sides.state) lean.push(sides.state + " state-controlled");
+    box.appendChild(el("p", "why",
+      "Reliability " + story.reliability + " = " + p.base + " (average of the best " +
+      Math.min(3, story.outlets) + ") + " + p.bonus + " for corroboration" +
+      (p.base + p.bonus > 99 ? ", capped at 99" : "") + ". " +
+      "Trend " + story.trend + " from coverage " + Math.round(p.coverage * 100) + "%, recency " +
+      Math.round(p.recency * 100) + "%, last-6-hours activity " + Math.round(p.velocity * 100) +
+      "%, feed position " + Math.round(p.prominence * 100) + "%. Outlets by lean: " + lean.join(", ") + "."));
+    var ul = el("ul");
+    story.articles.forEach(function (a) {
+      var li = el("li");
+      var r = el("span", "r", String(a.reliability));
+      r.style.setProperty("--c", tierVar(a.reliability));
+      r.title = "Outlet rating";
+      li.appendChild(r);
+      var body = el("div");
+      body.appendChild(link(a.url, a.title));
+      body.appendChild(el("small", null, a.outlet + " · " + LEAN[a.bias] + " · " + ago(a.published)));
+      li.appendChild(body);
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+    return box;
+  }
+
+  function storyRow(story, rank) {
+    var li = el("li", "story");
+    li.appendChild(el("div", "rank", String(rank)));
+
+    var main = el("div", "main");
+    var h = el("h3");
+    h.appendChild(link(story.url, story.title));
+    main.appendChild(h);
+    if (story.summary) main.appendChild(el("p", "summary", story.summary));
+
+    var meta = el("div", "meta");
+    meta.appendChild(el("span", "topic", story.topic));
+    meta.appendChild(el("span", null, "Latest " + ago(story.lastSeen)));
+    story.flags.forEach(function (f) {
+      meta.appendChild(el("span", "flag" + (f === "No reliable outlet" || f === "Only state media" ? " bad" : ""), f));
+    });
+    main.appendChild(meta);
+
+    var chips = el("div", "chips");
+    var outlets = outletsOf(story);
+    outlets.slice(0, 8).forEach(function (a) {
+      var c = link(a.url, null, "chip");
+      c.style.setProperty("--c", tierVar(a.reliability));
+      c.appendChild(document.createTextNode(a.outlet));
+      c.appendChild(el("b", null, String(a.reliability)));
+      c.title = a.outlet + ", rated " + a.reliability + ", " + LEAN[a.bias].toLowerCase();
+      chips.appendChild(c);
+    });
+    if (outlets.length > 8) chips.appendChild(el("span", "chip plain", "+" + (outlets.length - 8) + " more"));
+    main.appendChild(chips);
+
+    var btn = el("button", "more", "Show score breakdown and " + plural(story.articles.length, "article"));
+    btn.type = "button";
+    btn.setAttribute("aria-expanded", "false");
+    var open = null;
+    btn.addEventListener("click", function () {
+      if (open) {
+        main.removeChild(open); open = null;
+        btn.textContent = "Show score breakdown and " + plural(story.articles.length, "article");
+        btn.setAttribute("aria-expanded", "false");
+      } else {
+        open = detail(story); main.appendChild(open);
+        btn.textContent = "Hide breakdown";
+        btn.setAttribute("aria-expanded", "true");
+      }
+    });
+    main.appendChild(btn);
+    li.appendChild(main);
+
+    var gauges = el("div", "gauges");
+    gauges.appendChild(gauge("Trend", story.trend, "var(--trend)", trendNote(story)));
+    gauges.appendChild(gauge("Reliability", story.reliability, tierVar(story.reliability), relNote(story)));
+    li.appendChild(gauges);
+    return li;
+  }
+
+  var SORTS = {
+    trend: function (a, b) { return b.trend - a.trend || b.reliability - a.reliability; },
+    reliability: function (a, b) { return b.reliability - a.reliability || b.trend - a.trend; },
+    doubt: function (a, b) { return a.reliability - b.reliability || b.trend - a.trend; },
+    "new": function (a, b) { return (a.lastSeen < b.lastSeen ? 1 : a.lastSeen > b.lastSeen ? -1 : 0) || b.trend - a.trend; }
+  };
+
+  function matches(story) {
+    if (state.topic && story.topic !== state.topic) return false;
+    if (story.outlets < state.coverage) return false;
+    if (state.query) {
+      var q = state.query;
+      if (story.title.toLowerCase().indexOf(q) === -1 && story.summary.toLowerCase().indexOf(q) === -1 &&
+          !story.articles.some(function (a) { return a.outlet.toLowerCase().indexOf(q) !== -1 || a.title.toLowerCase().indexOf(q) !== -1; })) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function render() {
+    var list = document.getElementById("stories");
+    var rows = DATA.stories.filter(matches).sort(SORTS[state.sort]);
+    list.textContent = "";
+    if (!rows.length) {
+      list.appendChild(el("li", "empty", DATA.stories.length
+        ? "No stories match these filters. Set Coverage to Any or clear the search."
+        : "No articles were found in the time window. Check the outlet table below for failed feeds."));
+    }
+    rows.slice(0, state.shown).forEach(function (s, i) { list.appendChild(storyRow(s, i + 1)); });
+    var pager = document.getElementById("pager");
+    pager.hidden = rows.length <= state.shown;
+    pager.textContent = "Show " + Math.min(PAGE, rows.length - state.shown) + " more of " + rows.length;
+    document.getElementById("count").textContent =
+      "Showing " + Math.min(state.shown, rows.length) + " of " + rows.length + (rows.length === 1 ? " story" : " stories");
+  }
+
+  function renderLedger() {
+    var body = document.getElementById("ledger");
+    DATA.sources.forEach(function (s) {
+      var tr = el("tr");
+      tr.appendChild(el("td", null, s.name));
+      var score = el("td", "score", String(s.reliability));
+      score.style.setProperty("--c", tierVar(s.reliability));
+      tr.appendChild(score);
+      tr.appendChild(el("td", null, LEAN[s.bias]));
+      if (s.failed === s.feeds) {
+        tr.appendChild(el("td", "n fail", "feed failed"));
+      } else {
+        tr.appendChild(el("td", "n", String(s.articles)));
+      }
+      tr.appendChild(el("td", null, s.note + (s.failed && s.failed < s.feeds ? " (" + s.failed + " of " + s.feeds + " feeds failed this run.)" : "")));
+      body.appendChild(tr);
+    });
+  }
+
+  function renderHeader() {
+    var st = DATA.stats;
+    var date = GENERATED.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+    var time = GENERATED.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", timeZoneName: "short" });
+    document.getElementById("edition").textContent = "Edition of " + date + ", " + time;
+    document.getElementById("run").textContent =
+      st.articles + " articles from " + st.outlets + " outlets over the last " + DATA.windowHours +
+      " hours, grouped into " + st.stories + " stories. " + st.multiSource +
+      " of them are carried by more than one outlet. Scraped and scored in " + st.totalSeconds + " seconds.";
+    var failed = st.feeds - st.feedsOk;
+    document.getElementById("foot").textContent =
+      st.feedsOk + " of " + st.feeds + " feeds were read successfully" +
+      (failed ? "; " + failed + " failed and are marked in the table above." : ".") +
+      " Headlines and summaries belong to their publishers and link to the original articles.";
+  }
+
+  document.getElementById("sort").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-sort]");
+    if (!b) return;
+    state.sort = b.getAttribute("data-sort");
+    state.shown = PAGE;
+    Array.prototype.forEach.call(this.querySelectorAll("button"), function (x) {
+      x.setAttribute("aria-pressed", x === b ? "true" : "false");
+    });
+    render();
+  });
+  document.getElementById("topic").addEventListener("change", function () { state.topic = this.value; state.shown = PAGE; render(); });
+  document.getElementById("coverage").addEventListener("change", function () { state.coverage = Number(this.value); state.shown = PAGE; render(); });
+  document.getElementById("search").addEventListener("input", function () { state.query = this.value.trim().toLowerCase(); state.shown = PAGE; render(); });
+  document.getElementById("pager").addEventListener("click", function () { state.shown += PAGE; render(); });
+
+  // The platform may restore form values after a republish; read them rather than assume defaults.
+  state.topic = document.getElementById("topic").value;
+  state.coverage = Number(document.getElementById("coverage").value);
+  state.query = document.getElementById("search").value.trim().toLowerCase();
+
+  renderHeader();
+  renderLedger();
+  render();
+})();
+</script>
